@@ -9,14 +9,19 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -43,9 +48,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainScreen() {
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val file = File(context.filesDir, "gif_wallpaper.gif")
+    var isDownloading by remember { mutableStateOf(false) }
 
     val painter = if (file.exists()) {
         rememberImagePainter(data = file)
@@ -54,29 +59,37 @@ fun MainScreen() {
     }
 
     LaunchedEffect(Unit) {
-        downloadAndSaveGif(context)
+        isDownloading = true
+        downloadAndSaveGif(context) {
+            isDownloading = false
+        }
     }
 
-    Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Button(onClick = {
-            val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
-            intent.putExtra(
-                WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                ComponentName(context, GifWallpaperService::class.java)
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Button(onClick = {
+                val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
+                intent.putExtra(
+                    WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+                    ComponentName(context, GifWallpaperService::class.java)
+                )
+                context.startActivity(intent)
+            }) {
+                Text("Set as Live Wallpaper")
+            }
+            Image(
+                painter = painter,
+                contentDescription = "Live Wallpaper Image",
+                modifier = Modifier.fillMaxWidth()
             )
-            context.startActivity(intent)
-        }) {
-            Text("Set as Live Wallpaper")
         }
-        Image(
-            painter = painter,
-            contentDescription = "Live Wallpaper Image",
-            modifier = Modifier.fillMaxWidth()
-        )
+        if (isDownloading) {
+            CircularProgressIndicator()
+        }
     }
 }
 
-fun downloadAndSaveGif(context: Context) {
+fun downloadAndSaveGif(context: Context, onDownloadComplete: () -> Unit) {
     val url = Constants.GIF_URL
     val client = OkHttpClient()
 
@@ -84,6 +97,7 @@ fun downloadAndSaveGif(context: Context) {
     client.newCall(request).enqueue(object : Callback {
         override fun onFailure(call: Call, e: IOException) {
             Log.e("downloadAndSaveGif", e.message.toString())
+            onDownloadComplete()
         }
 
         override fun onResponse(call: Call, response: Response) {
@@ -94,6 +108,7 @@ fun downloadAndSaveGif(context: Context) {
                     saveGifToLocalFile(bufferedBytes, context)
                 }
             }
+            onDownloadComplete()
         }
     })
 }
