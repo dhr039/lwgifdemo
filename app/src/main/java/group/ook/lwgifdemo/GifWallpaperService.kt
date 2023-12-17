@@ -3,16 +3,9 @@ package group.ook.lwgifdemo
 import android.graphics.Canvas
 import android.os.Handler
 import android.service.wallpaper.WallpaperService
-import android.util.Log
 import android.view.SurfaceHolder
-import okhttp3.Call
-import okhttp3.Callback
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Response
 import pl.droidsonroids.gif.GifDrawable
-import java.io.ByteArrayInputStream
-import java.io.IOException
+import java.io.File
 
 class GifWallpaperService : WallpaperService() {
     override fun onCreateEngine(): Engine {
@@ -46,30 +39,10 @@ class GifWallpaperService : WallpaperService() {
         }
 
         private fun initializeGif() {
-            val url = Constants.GIF_URL
-            val client = OkHttpClient()
-
-            val request = Request.Builder().url(url).build()
-            client.newCall(request).enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    Log.e("GifWallpaperEngine", e.message.toString())
-                }
-
-                override fun onResponse(call: Call, response: Response) {
-                    if (response.isSuccessful) {
-                        response.body?.let { responseBody ->
-                            val inputStream = responseBody.byteStream()
-                            val bufferedBytes = inputStream.readBytes() /*buffer the entire stream*/
-                            val byteArrayInputStream = ByteArrayInputStream(bufferedBytes)
-
-                            /*use ByteArrayInputStream to create GifDrawable*/
-                            gifDrawable = GifDrawable(byteArrayInputStream)
-                        }
-                    } else {
-                        Log.e("GifWallpaperEngine", "OkHttp response error")
-                    }
-                }
-            })
+            val file = File(applicationContext.filesDir, Constants.LOCAL_GIF_FILENAME)
+            if (file.exists()) {
+                gifDrawable = GifDrawable(file.path)
+            }
         }
 
         private fun draw() {
